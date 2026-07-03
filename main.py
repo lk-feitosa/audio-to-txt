@@ -53,12 +53,9 @@ if not os.path.exists(arquivo_video):
 
 # 2. Solicita o formato e os idiomas
 print("\n🌍 Quais legendas você deseja gerar?")
-print("1 - Apenas Português (pt)")
-print("2 - Apenas Inglês (en)")
-print("3 - Outro Idioma Específico (ex: espanhol, francês)")
-print("4 - Detectar Automático (Descobre o idioma principal)")
-print("5 - Múltiplas Legendas Áudio (Ouve o áudio de novo para cada idioma)")
-print("6 - Tradução Mágica (Ouve em Inglês 1x e traduz o TEXTO p/ outros idiomas - Ideal p/ vídeos mistos!)")
+print("1 - Escolher idioma(s) de saída (Manual)")
+print("2 - Áudio Misto (Resolve o bug de vídeos que misturam idiomas)")
+print("3 - Detectar Automaticamente (Descobre o idioma principal)")
 escolha_idioma = input("> ").strip()
 
 idiomas_para_processar = []
@@ -66,29 +63,26 @@ duplo_idioma_mode = False
 traducao_magica_mode = False
 
 if escolha_idioma == "1":
-    idiomas_para_processar = ["pt"]
+    print("\nDigite o(s) idioma(s) desejado(s) separados por vírgula (Enter para 'pt').")
+    print("Exemplo: pt, en, es")
+    langs = input("> ").strip().lower()
+    if not langs:
+        langs = "pt"
+    idiomas_para_processar = [l.strip() for l in langs.split(",") if l.strip()]
+    if len(idiomas_para_processar) > 1:
+        duplo_idioma_mode = True
+
 elif escolha_idioma == "2":
-    idiomas_para_processar = ["en"]
-elif escolha_idioma == "3":
-    lang = input("Digite o código do idioma (ex: es, fr, de, it, ja):\n> ").strip().lower()
-    idiomas_para_processar = [lang] if lang else ["pt"]
-elif escolha_idioma == "4":
-    idiomas_para_processar = [None] # Deixa a IA descobrir o idioma sozinha
-elif escolha_idioma == "5":
-    duplo_idioma_mode = True
-    print("\nDigite os códigos dos idiomas desejados separados por vírgula.")
-    langs = input("> ").strip().lower()
-    idiomas_para_processar = [l.strip() for l in langs.split(",") if l.strip()]
-    if len(idiomas_para_processar) == 0:
-        idiomas_para_processar = ["pt", "en"]
-elif escolha_idioma == "6":
     traducao_magica_mode = True
-    print("\nEssa opção vai extrair a base perfeitamente em Inglês e traduzir o texto gerado (Super Rápido).")
-    print("Quais idiomas você quer salvar no final? (ex: pt, es, fr)")
+    print("\nQuais idiomas você quer salvar no final? (Enter para 'pt, en')")
     langs = input("> ").strip().lower()
+    if not langs:
+        langs = "pt, en"
     idiomas_para_processar = [l.strip() for l in langs.split(",") if l.strip()]
-    if len(idiomas_para_processar) == 0:
-        idiomas_para_processar = ["pt"]
+
+elif escolha_idioma == "3":
+    idiomas_para_processar = [None] # Deixa a IA descobrir o idioma sozinha
+
 else:
     idiomas_para_processar = ["pt"]
 
