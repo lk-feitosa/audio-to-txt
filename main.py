@@ -52,27 +52,24 @@ if not os.path.exists(arquivo_video):
 
 # 2. Solicita o idioma do vídeo
 print("\n🌍 Qual o idioma do vídeo?")
-print("1 - Português (Traduz as outras línguas para PT)")
-print("2 - Inglês (Traduz as outras línguas para EN)")
-print("3 - Automático (Apenas 1 idioma principal)")
-print("4 - Modo Misto (Mantém múltiplos idiomas no original, sem traduzir)")
+print("1 - Português (Traduz tudo para PT)")
+print("2 - Inglês (Traduz tudo para EN)")
+print("3 - Automático (Detecta 1 idioma principal)")
+print("4 - Duplo Idioma (Gera 2 arquivos: um 100% em PT e outro 100% em EN)")
 escolha_idioma = input("> ").strip()
 
 idioma_selecionado = "pt"
-multilingual_mode = False
+duplo_idioma_mode = False
 
 if escolha_idioma == "2":
     idioma_selecionado = "en"
 elif escolha_idioma == "3":
     idioma_selecionado = None # Deixa a IA descobrir o idioma principal
 elif escolha_idioma == "4":
-    idioma_selecionado = None
-    multilingual_mode = True # Força a IA a identificar o idioma em CADA frase
+    duplo_idioma_mode = True
 
 # Configurações do arquivo
 arquivo_audio = "audio_otimizado.mp3"
-# Salva o arquivo de texto com o mesmo nome do vídeo (mas com .txt)
-arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao.txt"
 
 # 2. Extrai e otimiza o áudio usando FFmpeg
 print(f"\n⚙️  Extraindo e otimizando o áudio de: {os.path.basename(arquivo_video)}...")
@@ -106,47 +103,54 @@ except Exception as e:
     # Fallback seguro para rodar em literalmente qualquer computador
     model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 
-if idioma_selecionado:
-    print(f"\n🎙️  Iniciando a transcrição (Idioma forçado: {idioma_selecionado})...")
-elif multilingual_mode:
-    print("\n🎙️  Iniciando a transcrição (Modo Misto - Múltiplos Idiomas Originais)...")
-else:
-    print("\n🎙️  Iniciando a transcrição (Detectando o idioma principal)...")
+idiomas_para_processar = ["pt", "en"] if duplo_idioma_mode else [idioma_selecionado]
 
-if multilingual_mode:
-    # O parâmetro multilingual=True faz a IA redetectar o idioma a cada segmento.
-    # O condition_on_previous_text=False impede que frases anteriores num idioma "contaminem" o próximo idioma.
+for idioma in idiomas_para_processar:
+    if duplo_idioma_mode:
+        print(f"\n🔄 [DUPLO IDIOMA] Iniciando transcrição para a versão: {idioma.upper()}")
+    elif idioma:
+        print(f"\n🎙️  Iniciando a transcrição (Idioma forçado: {idioma})...")
+    else:
+        print("\n🎙️  Iniciando a transcrição (Detectando o idioma principal)...")
+
     segments, info = model.transcribe(
         arquivo_audio, 
         beam_size=5, 
-        language=None, 
-        multilingual=True, 
-        condition_on_previous_text=False
+        language=idioma,
+        vad_filter=True
     )
-else:
-    segments, info = model.transcribe(arquivo_audio, beam_size=5, language=idioma_selecionado)
 
-if not idioma_selecionado:
-    print(f"🗣️  Idioma detectado: {info.language} (Probabilidade: {info.language_probability:.2f})")
+    if not idioma:
+        print(f"🗣️  Idioma detectado: {info.language} (Probabilidade: {info.language_probability:.2f})")
 
-total_duracao = info.duration
-print(f"⏱️  Duração total do vídeo: {str(datetime.timedelta(seconds=int(total_duracao)))}")
+    total_duracao = info.duration
+    if not duplo_idioma_mode or idioma == idiomas_para_processar[0]:
+        print(f"⏱️  Duração total do vídeo: {str(datetime.timedelta(seconds=int(total_duracao)))}")
 
-with tqdm(total=total_duracao, unit="s", desc="Processando áudio") as pbar:
-    with open(arquivo_saida, "w", encoding="utf-8") as f:
-        ultimo_pos = 0
-        for segment in segments:
-            inicio = str(datetime.timedelta(seconds=int(segment.start)))
-            fim = str(datetime.timedelta(seconds=int(segment.end)))
-            
-            linha = f"[{inicio} -> {fim}] {segment.text}\n"
-            f.write(linha)
-            
-            pbar.update(segment.end - ultimo_pos)
-            ultimo_pos = segment.end
+    # Define o nome do arquivo de saída
+    if duplo_idioma_mode:
+        arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao_{idioma.upper()}.txt"
+    else:
+        arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao.txt"
 
-print(f"\n✅ Transcrição concluída com sucesso!")
-print(f"📄 Arquivo salvo em: {arquivo_saida}")
+    desc_barra = f"Processando ({idioma.upper()})" if idioma else "Processando áudio"
+    
+    with tqdm(total=total_duracao, unit="s", desc=desc_barra) as pbar:
+        with open(arquivo_saida, "w", encoding="utf-8") as f:
+            ultimo_pos = 0
+            for segment in segments:
+                inicio = str(datetime.timedelta(seconds=int(segment.start)))
+                fim = str(datetime.timedelta(seconds=int(segment.end)))
+                
+                linha = f"[{inicio} -> {fim}] {segment.text}\n"
+                f.write(linha)
+                
+                pbar.update(segment.end - ultimo_pos)
+                ultimo_pos = segment.end
+
+    print(f"✅ Transcrição concluída! Salvo em: {arquivo_saida}")
+
+print("\n🎉 Processo finalizado com sucesso!")
 
 # Limpa o arquivo de áudio temporário para não ocupar espaço
 if os.path.exists(arquivo_audio):
