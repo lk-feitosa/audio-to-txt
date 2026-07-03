@@ -50,6 +50,25 @@ if not os.path.exists(arquivo_video):
     print("Dica: Tente colar o caminho sem aspas e sem barras invertidas (\\).")
     exit(1)
 
+# 2. Solicita o idioma do vídeo
+print("\n🌍 Qual o idioma do vídeo?")
+print("1 - Português (Traduz as outras línguas para PT)")
+print("2 - Inglês (Traduz as outras línguas para EN)")
+print("3 - Automático (Apenas 1 idioma principal)")
+print("4 - Modo Misto (Mantém múltiplos idiomas no original, sem traduzir)")
+escolha_idioma = input("> ").strip()
+
+idioma_selecionado = "pt"
+multilingual_mode = False
+
+if escolha_idioma == "2":
+    idioma_selecionado = "en"
+elif escolha_idioma == "3":
+    idioma_selecionado = None # Deixa a IA descobrir o idioma principal
+elif escolha_idioma == "4":
+    idioma_selecionado = None
+    multilingual_mode = True # Força a IA a identificar o idioma em CADA frase
+
 # Configurações do arquivo
 arquivo_audio = "audio_otimizado.mp3"
 # Salva o arquivo de texto com o mesmo nome do vídeo (mas com .txt)
@@ -76,11 +95,39 @@ except subprocess.CalledProcessError:
     exit(1)
 
 # 3. Executa a transcrição
-print("\n🚀 Carregando o modelo Whisper Large-V3 (isso pode demorar uns segundos na primeira vez)...")
-model = WhisperModel("large-v3", device="cuda", compute_type="float16")
+print("\n🚀 Tentando carregar o modelo Whisper Large-V3 na GPU (NVIDIA)...")
+try:
+    # Tenta rodar com aceleração máxima na GPU
+    model = WhisperModel("large-v3", device="cuda", compute_type="float16")
+    print("✅ Aceleração de GPU (CUDA) ativada com sucesso!")
+except Exception as e:
+    print("\n⚠️ Placa de vídeo NVIDIA não detectada ou incompatível.")
+    print("🐌 Recuando para processamento na CPU (isso pode ser mais lento)...")
+    # Fallback seguro para rodar em literalmente qualquer computador
+    model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 
-print("🎙️  Iniciando a transcrição (Português)...")
-segments, info = model.transcribe(arquivo_audio, beam_size=5, language="pt")
+if idioma_selecionado:
+    print(f"\n🎙️  Iniciando a transcrição (Idioma forçado: {idioma_selecionado})...")
+elif multilingual_mode:
+    print("\n🎙️  Iniciando a transcrição (Modo Misto - Múltiplos Idiomas Originais)...")
+else:
+    print("\n🎙️  Iniciando a transcrição (Detectando o idioma principal)...")
+
+if multilingual_mode:
+    # O parâmetro multilingual=True faz a IA redetectar o idioma a cada segmento.
+    # O condition_on_previous_text=False impede que frases anteriores num idioma "contaminem" o próximo idioma.
+    segments, info = model.transcribe(
+        arquivo_audio, 
+        beam_size=5, 
+        language=None, 
+        multilingual=True, 
+        condition_on_previous_text=False
+    )
+else:
+    segments, info = model.transcribe(arquivo_audio, beam_size=5, language=idioma_selecionado)
+
+if not idioma_selecionado:
+    print(f"🗣️  Idioma detectado: {info.language} (Probabilidade: {info.language_probability:.2f})")
 
 total_duracao = info.duration
 print(f"⏱️  Duração total do vídeo: {str(datetime.timedelta(seconds=int(total_duracao)))}")

@@ -10,7 +10,7 @@ Para rodar este script em um novo PC, certifique-se de ter os seguintes programa
 - **FFmpeg**: Necessário para extrair e converter o áudio do vídeo antes de mandar para a IA.
   - Fedora: `sudo dnf install ffmpeg`
   - Ubuntu/Debian: `sudo apt install ffmpeg`
-- **Drivers NVIDIA** devidamente instalados no computador.
+- **Placa de Vídeo NVIDIA (Opcional, mas recomendado)**: O script possui um sistema inteligente de *fallback*. Se você tiver uma NVIDIA, ele usará a GPU para transcrições super rápidas. Se você usar AMD, Intel ou não tiver GPU, ele processará automaticamente usando a CPU da máquina.
 
 ## 🚀 Instalação e Execução
 
@@ -27,4 +27,12 @@ O script cuidará de tudo automaticamente:
 3. Instalação super-rápida das dependências (incluindo as bibliotecas CUDA)
 4. Execução do `main.py`
 
-Ao rodar, o terminal pedirá para você arrastar o arquivo de vídeo. O áudio será extraído silenciosamente e a transcrição será salva no formato `[Tempo -> Tempo] Texto` em um arquivo `.txt` ao lado do vídeo original.
+Ao rodar, o terminal pedirá para você arrastar o arquivo de vídeo. Logo em seguida, você poderá escolher o idioma da transcrição de forma interativa. 
+
+O áudio será extraído silenciosamente pelo FFmpeg e a transcrição será salva no formato `[Tempo -> Tempo] Texto` em um arquivo `.txt` ao lado do vídeo original.
+
+## ✨ Recursos Inteligentes Inclusos
+
+- **Fallback Automático (NVIDIA vs AMD/CPU):** O script tenta utilizar a aceleração CUDA. Se falhar por incompatibilidade de hardware (ex: Placas AMD), ele recua de forma invisível para o processamento via processador (CPU), garantindo que o programa rode em qualquer computador.
+- **Tradução Automática:** Ao selecionar Português ou Inglês, qualquer idioma estrangeiro falado no vídeo será automaticamente traduzido para a língua escolhida na legenda.
+- **Modo Misto (Múltiplos Idiomas):** Ideal para vídeos onde as pessoas misturam línguas constantemente. O Whisper identificará e transcreverá cada frase no seu idioma original, sem forçar traduções equivocadas.
