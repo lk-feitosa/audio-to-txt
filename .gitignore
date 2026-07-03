@@ -1,0 +1,25 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Arquivos de mídia (Para evitar subir vídeos/áudios pesados por engano)
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.mp3
+*.wav
+
+# Resultados gerados pelo script
+*_transcricao.txt
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
