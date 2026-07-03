@@ -50,23 +50,37 @@ if not os.path.exists(arquivo_video):
     print("Dica: Tente colar o caminho sem aspas e sem barras invertidas (\\).")
     exit(1)
 
-# 2. Solicita o idioma do vídeo
-print("\n🌍 Qual o idioma do vídeo?")
-print("1 - Português (Traduz tudo para PT)")
-print("2 - Inglês (Traduz tudo para EN)")
-print("3 - Automático (Detecta 1 idioma principal)")
-print("4 - Duplo Idioma (Gera 2 arquivos: um 100% em PT e outro 100% em EN)")
+# 2. Solicita o formato e os idiomas
+print("\n🌍 Quais legendas você deseja gerar?")
+print("1 - Apenas Português (pt)")
+print("2 - Apenas Inglês (en)")
+print("3 - Outro Idioma Específico (ex: espanhol, francês)")
+print("4 - Detectar Automático (Descobre o idioma principal)")
+print("5 - Múltiplas Legendas (Gera arquivos separados para 2 ou mais idiomas)")
 escolha_idioma = input("> ").strip()
 
-idioma_selecionado = "pt"
+idiomas_para_processar = []
 duplo_idioma_mode = False
 
-if escolha_idioma == "2":
-    idioma_selecionado = "en"
+if escolha_idioma == "1":
+    idiomas_para_processar = ["pt"]
+elif escolha_idioma == "2":
+    idiomas_para_processar = ["en"]
 elif escolha_idioma == "3":
-    idioma_selecionado = None # Deixa a IA descobrir o idioma principal
+    lang = input("Digite o código do idioma (ex: es, fr, de, it, ja):\n> ").strip().lower()
+    idiomas_para_processar = [lang] if lang else ["pt"]
 elif escolha_idioma == "4":
+    idiomas_para_processar = [None] # Deixa a IA descobrir o idioma sozinha
+elif escolha_idioma == "5":
     duplo_idioma_mode = True
+    print("\nDigite os códigos dos idiomas desejados separados por vírgula.")
+    print("Exemplo: pt, en, es (Isso gerará 3 arquivos completos separados!)")
+    langs = input("> ").strip().lower()
+    idiomas_para_processar = [l.strip() for l in langs.split(",") if l.strip()]
+    if len(idiomas_para_processar) == 0:
+        idiomas_para_processar = ["pt", "en"]
+else:
+    idiomas_para_processar = ["pt"]
 
 # Configurações do arquivo
 arquivo_audio = "audio_otimizado.mp3"
@@ -103,11 +117,9 @@ except Exception as e:
     # Fallback seguro para rodar em literalmente qualquer computador
     model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 
-idiomas_para_processar = ["pt", "en"] if duplo_idioma_mode else [idioma_selecionado]
-
 for idioma in idiomas_para_processar:
     if duplo_idioma_mode:
-        print(f"\n🔄 [DUPLO IDIOMA] Iniciando transcrição para a versão: {idioma.upper()}")
+        print(f"\n🔄 [MÚLTIPLOS IDIOMAS] Iniciando transcrição para a versão: {idioma.upper()}")
     elif idioma:
         print(f"\n🎙️  Iniciando a transcrição (Idioma forçado: {idioma})...")
     else:
