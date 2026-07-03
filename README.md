@@ -34,5 +34,5 @@ O áudio será extraído silenciosamente pelo FFmpeg e a transcrição será sal
 ## ✨ Recursos Inteligentes Inclusos
 
 - **Fallback Automático (NVIDIA vs AMD/CPU):** O script tenta utilizar a aceleração CUDA. Se falhar por incompatibilidade de hardware (ex: Placas AMD), ele recua de forma invisível para o processamento via processador (CPU), garantindo que o programa rode em qualquer computador.
-- **Tradução Automática:** Ao selecionar Português ou Inglês, qualquer idioma estrangeiro falado no vídeo será automaticamente traduzido para a língua escolhida na legenda.
-- **Modo Misto (Múltiplos Idiomas):** Ideal para vídeos onde as pessoas misturam línguas constantemente. O Whisper identificará e transcreverá cada frase no seu idioma original, sem forçar traduções equivocadas.
+- **Múltiplas Legendas Simultâneas:** O script permite gerar várias legendas (ex: gerar um arquivo em Português e outro em Inglês) em uma única execução.
+- **Modo Áudio Misto (Tradução Mágica):** Em vídeos onde as pessoas misturam idiomas constantemente (code-switching), a IA tradicional costuma "alucinar" pulando trechos ou travando. Para resolver isso, o modo Áudio Misto extrai o áudio bruto de forma nativa e utiliza a API do **Google Translator** para traduzir o texto com perfeição (e sem erros) para quantos idiomas você pedir, simultaneamente!
