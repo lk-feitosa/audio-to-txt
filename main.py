@@ -2,6 +2,7 @@ import datetime
 import subprocess
 import os
 import ctypes
+from deep_translator import GoogleTranslator
 
 # Tenta carregar as bibliotecas CUDA do Python automaticamente (Resolve erro libcublas.so.12)
 try:
@@ -56,11 +57,13 @@ print("1 - Apenas Português (pt)")
 print("2 - Apenas Inglês (en)")
 print("3 - Outro Idioma Específico (ex: espanhol, francês)")
 print("4 - Detectar Automático (Descobre o idioma principal)")
-print("5 - Múltiplas Legendas (Gera arquivos separados para 2 ou mais idiomas)")
+print("5 - Múltiplas Legendas Áudio (Ouve o áudio de novo para cada idioma)")
+print("6 - Tradução Mágica (Ouve em Inglês 1x e traduz o TEXTO p/ outros idiomas - Ideal p/ vídeos mistos!)")
 escolha_idioma = input("> ").strip()
 
 idiomas_para_processar = []
 duplo_idioma_mode = False
+traducao_magica_mode = False
 
 if escolha_idioma == "1":
     idiomas_para_processar = ["pt"]
@@ -74,11 +77,18 @@ elif escolha_idioma == "4":
 elif escolha_idioma == "5":
     duplo_idioma_mode = True
     print("\nDigite os códigos dos idiomas desejados separados por vírgula.")
-    print("Exemplo: pt, en, es (Isso gerará 3 arquivos completos separados!)")
     langs = input("> ").strip().lower()
     idiomas_para_processar = [l.strip() for l in langs.split(",") if l.strip()]
     if len(idiomas_para_processar) == 0:
         idiomas_para_processar = ["pt", "en"]
+elif escolha_idioma == "6":
+    traducao_magica_mode = True
+    print("\nEssa opção vai extrair a base perfeitamente em Inglês e traduzir o texto gerado (Super Rápido).")
+    print("Quais idiomas você quer salvar no final? (ex: pt, es, fr)")
+    langs = input("> ").strip().lower()
+    idiomas_para_processar = [l.strip() for l in langs.split(",") if l.strip()]
+    if len(idiomas_para_processar) == 0:
+        idiomas_para_processar = ["pt"]
 else:
     idiomas_para_processar = ["pt"]
 
@@ -117,50 +127,106 @@ except Exception as e:
     # Fallback seguro para rodar em literalmente qualquer computador
     model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 
-for idioma in idiomas_para_processar:
-    if duplo_idioma_mode:
-        print(f"\n🔄 [MÚLTIPLOS IDIOMAS] Iniciando transcrição para a versão: {idioma.upper()}")
-    elif idioma:
-        print(f"\n🎙️  Iniciando a transcrição (Idioma forçado: {idioma})...")
-    else:
-        print("\n🎙️  Iniciando a transcrição (Detectando o idioma principal)...")
-
+if traducao_magica_mode:
+    print(f"\n✨ [TRADUÇÃO MÁGICA] Extraindo a base perfeita em INGLÊS...")
+    
+    # 1. Faz a transcrição perfeita em inglês (Impede o Whisper de se confundir em vídeos mistos)
     segments, info = model.transcribe(
         arquivo_audio, 
         beam_size=5, 
-        language=idioma,
-        vad_filter=True
+        language="en", 
+        vad_filter=True,
+        condition_on_previous_text=False
     )
-
-    if not idioma:
-        print(f"🗣️  Idioma detectado: {info.language} (Probabilidade: {info.language_probability:.2f})")
-
-    total_duracao = info.duration
-    if not duplo_idioma_mode or idioma == idiomas_para_processar[0]:
-        print(f"⏱️  Duração total do vídeo: {str(datetime.timedelta(seconds=int(total_duracao)))}")
-
-    # Define o nome do arquivo de saída
-    if duplo_idioma_mode:
-        arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao_{idioma.upper()}.txt"
-    else:
-        arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao.txt"
-
-    desc_barra = f"Processando ({idioma.upper()})" if idioma else "Processando áudio"
     
-    with tqdm(total=total_duracao, unit="s", desc=desc_barra) as pbar:
-        with open(arquivo_saida, "w", encoding="utf-8") as f:
-            ultimo_pos = 0
-            for segment in segments:
-                inicio = str(datetime.timedelta(seconds=int(segment.start)))
-                fim = str(datetime.timedelta(seconds=int(segment.end)))
+    total_duracao = info.duration
+    print(f"⏱️  Duração total do vídeo: {str(datetime.timedelta(seconds=int(total_duracao)))}")
+    
+    # Prepara os arquivos de saída e os tradutores do Google
+    arquivos_saida = {}
+    tradutores = {}
+    for lang in idiomas_para_processar:
+        nome_arquivo = f"{os.path.splitext(arquivo_video)[0]}_magica_{lang.upper()}.txt"
+        arquivos_saida[lang] = open(nome_arquivo, "w", encoding="utf-8")
+        if lang != "en":
+            tradutores[lang] = GoogleTranslator(source='en', target=lang)
+    
+    with tqdm(total=total_duracao, unit="s", desc="Extraindo & Traduzindo") as pbar:
+        ultimo_pos = 0
+        for segment in segments:
+            inicio = str(datetime.timedelta(seconds=int(segment.start)))
+            fim = str(datetime.timedelta(seconds=int(segment.end)))
+            texto_base = segment.text.strip()
+            
+            # Escreve a mesma linha já traduzida em TODOS os arquivos solicitados simultaneamente!
+            for lang in idiomas_para_processar:
+                if lang == "en":
+                    texto_final = texto_base
+                else:
+                    try:
+                        texto_final = tradutores[lang].translate(texto_base)
+                    except Exception:
+                        texto_final = texto_base # Falha na tradução (sem internet?), salva original
                 
-                linha = f"[{inicio} -> {fim}] {segment.text}\n"
-                f.write(linha)
-                
-                pbar.update(segment.end - ultimo_pos)
-                ultimo_pos = segment.end
+                linha = f"[{inicio} -> {fim}] {texto_final}\n"
+                arquivos_saida[lang].write(linha)
+                # Garante que o texto está sendo salvo no disco em tempo real
+                arquivos_saida[lang].flush() 
+            
+            pbar.update(segment.end - ultimo_pos)
+            ultimo_pos = segment.end
+            
+    for lang, f in arquivos_saida.items():
+        f.close()
+        print(f"✅ Arquivo de Tradução Mágica ({lang.upper()}) salvo!")
 
-    print(f"✅ Transcrição concluída! Salvo em: {arquivo_saida}")
+else:
+    # Modo Clássico (Ouvindo o áudio várias vezes através do Whisper)
+    for idioma in idiomas_para_processar:
+        if duplo_idioma_mode:
+            print(f"\n🔄 [MÚLTIPLOS IDIOMAS] Iniciando transcrição para a versão: {idioma.upper()}")
+        elif idioma:
+            print(f"\n🎙️  Iniciando a transcrição (Idioma forçado: {idioma})...")
+        else:
+            print("\n🎙️  Iniciando a transcrição (Detectando o idioma principal)...")
+
+        segments, info = model.transcribe(
+            arquivo_audio, 
+            beam_size=5, 
+            language=idioma,
+            vad_filter=True,
+            condition_on_previous_text=False # Evita que a IA entre em loop e repita a mesma frase várias vezes
+        )
+
+        if not idioma:
+            print(f"🗣️  Idioma detectado: {info.language} (Probabilidade: {info.language_probability:.2f})")
+
+        total_duracao = info.duration
+        if not duplo_idioma_mode or idioma == idiomas_para_processar[0]:
+            print(f"⏱️  Duração total do vídeo: {str(datetime.timedelta(seconds=int(total_duracao)))}")
+
+        # Define o nome do arquivo de saída
+        if duplo_idioma_mode:
+            arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao_{idioma.upper()}.txt"
+        else:
+            arquivo_saida = f"{os.path.splitext(arquivo_video)[0]}_transcricao.txt"
+
+        desc_barra = f"Processando ({idioma.upper()})" if idioma else "Processando áudio"
+        
+        with tqdm(total=total_duracao, unit="s", desc=desc_barra) as pbar:
+            with open(arquivo_saida, "w", encoding="utf-8") as f:
+                ultimo_pos = 0
+                for segment in segments:
+                    inicio = str(datetime.timedelta(seconds=int(segment.start)))
+                    fim = str(datetime.timedelta(seconds=int(segment.end)))
+                    
+                    linha = f"[{inicio} -> {fim}] {segment.text}\n"
+                    f.write(linha)
+                    
+                    pbar.update(segment.end - ultimo_pos)
+                    ultimo_pos = segment.end
+
+        print(f"✅ Transcrição concluída! Salvo em: {arquivo_saida}")
 
 print("\n🎉 Processo finalizado com sucesso!")
 
